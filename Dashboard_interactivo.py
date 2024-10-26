@@ -1,5 +1,5 @@
 # Importar código "Limpieza_Creacion_BaseDeDatos"
-import Limpieza_Creacion_BaseDeDatos as dataset
+import Limpieza_Creacion_BaseDeDatos_v2 as dataset
 
 #---------------------------------Conectar MySQL con Pandas -------------------------------------------------------------------------
 

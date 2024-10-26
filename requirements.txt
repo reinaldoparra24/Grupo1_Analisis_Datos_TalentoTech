@@ -1,0 +1,10 @@
+pandas
+streamlit
+matplotlib
+pydeck
+mysql
+sqlalchemy
+plotly
+seaborn
+PyMySQL
+openpyxl

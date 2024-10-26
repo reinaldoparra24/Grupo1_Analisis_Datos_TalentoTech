@@ -2,9 +2,6 @@ pandas
 streamlit
 matplotlib
 pydeck
-mysql-connector-python
-sqlalchemy
 plotly
 seaborn
 openpyxl
-sqlite3

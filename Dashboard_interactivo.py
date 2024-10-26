@@ -1,28 +1,47 @@
-# Importar código "Limpieza_Creacion_BaseDeDatos"
-import Limpieza_Creacion_BaseDeDatos_v2 as dataset
-
-#---------------------------------Conectar MySQL con Pandas -------------------------------------------------------------------------
-
 import pandas as pd
-from sqlalchemy import create_engine
-import mysql.connector
+from pandas import *
 
-# Conexión a la base de datos
-connection = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    password='',
-    database='energias_renovables'
-)
+dataset = pd.read_csv("Fuentes_No_Convencionales_de_Energ_a_Renovable.csv")
 
-# Datos de conexión
-host = 'localhost'
-user = 'root'
-password = ''
-database = 'energias_renovables'
+# Convertir la columna 'Fecha estimada FPO' a tipo datetime
+dataset['Fecha estimada FPO'] = pd.to_datetime(dataset['Fecha estimada FPO'], errors='coerce')
 
-# Crear el motor de conexión
-engine = create_engine(f'mysql+pymysql://{user}:{password}@{host}/{database}')
+# Contar el número de filas duplicadas
+num_duplicated_rows = dataset.duplicated().sum()
+
+# Dataset con las filas duplicadas (si existen)
+
+duplicated_rows = dataset[dataset.duplicated()]
+
+# Verificar si hay valores nulos en el dataset
+missing_values = dataset.isnull().sum()
+
+# Eliminar duplicados
+df_clean = dataset.drop_duplicates()
+
+# Reemplazar valores en filas con fechas nulas
+
+df_clean.loc[:, "Fecha estimada FPO"] = df_clean["Fecha estimada FPO"].fillna(pd.Timestamp("2021-12-31"))
+
+# Verificar si hay valores nulos en el dataset
+missing_values_2 = df_clean.isnull().sum()
+
+#---------------------------------Crear la base de datos SQLite desde el archivo SQL -------------------------------------------------------------------------
+
+import sqlite3
+
+# Crear la conexión a la base de datos SQLite
+conn = sqlite3.connect('energias_renovables.sqlite')
+cursor = conn.cursor()
+
+# Cerrar la conexión
+conn.commit()
+conn.close()
+
+# Consultas con Sqlite3
+
+# Conexión a la base de datos SQLite
+connection = sqlite3.connect('energias_renovables.sqlite')
 
 #---------------------------------CONSULTAS-------------------------------------------------------------------------
 
@@ -42,7 +61,7 @@ WHERE
     p.capacidad > 50
 ORDER BY p.capacidad DESC;
 """
-df_capacidadinstalada = pd.read_sql(query, con=engine)
+df_capacidadinstalada = pd.read_sql(query, con=connection)
 
 # Mostrar los primeros registros del DataFrame
 #df_capacidadinstalada.head()
@@ -65,7 +84,7 @@ ORDER BY
     capacidad_total DESC;
 """
 
-df_departamentos = pd.read_sql(query, con=engine)
+df_departamentos = pd.read_sql(query, con=connection)
 
 # Análisis adicional: mostrar los departamentos con capacidad mayor a 200 MW
 #df_departamentos[df_departamentos['capacidad_total'] > 200]
@@ -89,10 +108,10 @@ ORDER BY
     e.energia_kwh_dia DESC;
 """
 
-df_energia = pd.read_sql(query, con=engine)
+df_energia = pd.read_sql(query, con=connection)
 
 # Análisis adicional: calcular la relación entre la energía generada y las emisiones evitadas
-#df_energia['ratio_energia_emisiones'] = df_energia['energia_kwh_dia'] / df_energia['emisiones_co2_ton']
+df_energia['ratio_energia_emisiones'] = df_energia['energia_kwh_dia'] / df_energia['emisiones_co2_ton']
 #df_energia.sort_values(by='ratio_energia_emisiones', ascending=False).head()
 
 #----------------------------------------------------------------------------------------------------------
@@ -114,7 +133,7 @@ ORDER BY
     inversion_total DESC;
 """
 
-df_inversion = pd.read_sql(query, con=engine)
+df_inversion = pd.read_sql(query, con=connection)
 
 # Análisis adicional: mostrar los municipios con una inversión total mayor a 1 billón de COP
 #df_inversion[df_inversion['inversion_total'] > 1e12]
@@ -138,7 +157,7 @@ ORDER BY
     empleos_total DESC;
 """
 
-df_empleos = pd.read_sql(query, con=engine)
+df_empleos = pd.read_sql(query, con=connection)
 
 # Análisis adicional: filtrar los tipos de energía con más de 5000 empleos generados
 #df_empleos[df_empleos['empleos_total'] > 3000]
@@ -158,10 +177,10 @@ JOIN
     Energia_Emisiones e ON p.id = e.proyecto_id
 ORDER BY 
     energia_por_peso DESC
-LIMIT 10;
+LIMIT 20;
 """
 
-df_eficiencia = pd.read_sql(query, con=engine)
+df_eficiencia = pd.read_sql(query, con=connection)
 
 # Análisis adicional: mostrar los 5 proyectos más eficientes
 #df_eficiencia.nlargest(5, 'energia_por_peso')
@@ -172,7 +191,7 @@ df_eficiencia = pd.read_sql(query, con=engine)
 
 query = """
 SELECT 
-    YEAR(p.fecha_fpo) AS anio, 
+    strftime('%Y', p.fecha_fpo) AS anio, 
     SUM(p.capacidad) AS capacidad_total_anual
 FROM 
     Proyectos p
@@ -182,10 +201,10 @@ ORDER BY
     anio;
 """
 
-df_crecimiento = pd.read_sql(query, con=engine)
+df_crecimiento = pd.read_sql(query, con=connection)
 
 # Análisis adicional: mostrar el crecimiento de capacidad en los últimos 5 años
-df_crecimiento.tail(5)
+#df_crecimiento.tail(5)
 
 #----------------------------------------------------------------------------------------------------------
 
@@ -196,7 +215,7 @@ df_municipios = pd.read_csv('Municipios.csv',delimiter=";")
 df_municipios = df_municipios.drop('Unnamed: 4', axis=1)
 
 # Realizamos el merge basado en las columnas 'Departamento' y 'Municipio'
-df_merged = pd.merge(dataset.df_clean, df_municipios, on=['Departamento', 'Municipio'], how='left')
+df_merged = pd.merge(df_clean, df_municipios, on=['Departamento', 'Municipio'], how='left')
 
 # Verificar si hay valores nulos en el dataset
 missing_values = df_merged.isnull().sum()
@@ -285,8 +304,8 @@ with tab2:
                                   min_value=int(df_crecimiento['anio'].min()), 
                                   max_value=int(df_crecimiento['anio'].max()), 
                                   value=(2010, 2023))
-    df_crecimiento_filtrado = df_crecimiento[(df_crecimiento['anio'] >= anio_seleccionado[0]) & 
-                                             (df_crecimiento['anio'] <= anio_seleccionado[1])]
+    df_crecimiento['anio'] = df_crecimiento['anio'].astype(int)
+    df_crecimiento_filtrado = df_crecimiento[(df_crecimiento['anio'] >= anio_seleccionado[0]) & (df_crecimiento['anio'] <= anio_seleccionado[1])]
 
     # Gráfico de crecimiento anual de la capacidad filtrado por años
     fig6 = go.Figure(data=go.Scatter(x=df_crecimiento_filtrado['anio'], 
@@ -369,7 +388,7 @@ with tab5:
     st.plotly_chart(fig4)
 
     # Filtrar los datos de capacidad por tecnología según los tipos seleccionados
-    df_capacidad_filtrado = dataset.df_clean[dataset.df_clean['Tipo'].between(*tipos_seleccionados)]
+    df_capacidad_filtrado = df_clean[df_clean['Tipo'].between(*tipos_seleccionados)]
 
     # Gráfico de distribución de capacidad por tecnología filtrado
     fig8 = px.pie(df_capacidad_filtrado, names='Tipo', values='Capacidad',

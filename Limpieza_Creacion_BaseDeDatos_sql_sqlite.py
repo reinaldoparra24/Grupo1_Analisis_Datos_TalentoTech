@@ -248,3 +248,52 @@ cursor.close()
 connection.close()
 
 print("Datos insertados en la tabla Energia_Emisiones")
+
+#Convierte una base de datos MySQL a SQLite usando un archivo SQL
+
+import mysql.connector
+import sqlite3
+import pandas as pd
+
+# Configuración de MySQL
+mysql_config = {
+    'user': 'root',  # Cambia esto por tu usuario de MySQL
+    'password': '',  # Cambia por tu contraseña de MySQL
+    'host': '127.0.0.1',  # Cambia por la IP o dominio de tu servidor
+    'port': 3306,  # Puerto MySQL
+    'database': 'energias_renovables',  # Nombre de la base de datos MySQL
+    'raise_on_warnings': True
+}
+
+# Conexión a MySQL
+mysql_connection = mysql.connector.connect(**mysql_config)
+
+# Crear conexión y cursor a MySQL
+mysql_cursor = mysql_connection.cursor()
+
+# Crear conexión a SQLite y nombre del archivo .sqlite
+sqlite_conn = sqlite3.connect('energias_renovables.sqlite')
+
+# Función para convertir tablas de MySQL a SQLite
+def convert_mysql_to_sqlite(mysql_cursor, sqlite_conn, table_name):
+    # Leer la tabla de MySQL con pandas
+    df = pd.read_sql(f"SELECT * FROM {table_name}", mysql_connection)
+    
+    # Guardar la tabla en SQLite
+    df.to_sql(table_name, sqlite_conn, if_exists='replace', index=False)
+    print(f"Tabla '{table_name}' exportada a SQLite con éxito.")
+
+# Listar las tablas de la base de datos de MySQL
+mysql_cursor.execute("SHOW TABLES")
+tables = mysql_cursor.fetchall()
+
+# Recorrer las tablas y convertirlas
+for (table_name,) in tables:
+    convert_mysql_to_sqlite(mysql_cursor, sqlite_conn, table_name)
+
+# Cerrar conexiones
+mysql_cursor.close()
+mysql_connection.close()
+sqlite_conn.close()
+
+print("Exportación de todas las tablas de MySQL a SQLite completada.")

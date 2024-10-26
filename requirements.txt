@@ -7,3 +7,4 @@ sqlalchemy
 plotly
 seaborn
 openpyxl
+sqlite3
